@@ -1,57 +1,38 @@
 local socket = require("socket")
 
--- Create a UDP socket
-local udp = assert(socket.udp())
+-- Function to receive UDP messages
+function receive_udp_message(port)
+    local udp = socket.udp()
+    udp:setsockname('*', port)
+    udp:settimeout(2) -- Set timeout for receiving
+    local data, msg_or_ip, port_or_nil = udp:receivefrom()
+    udp:close()
+    return data, msg_or_ip, port_or_nil
+end
 
--- Bind to the local address and port
-udp:setsockname('127.0.0.1', 12346)
-
--- Set timeout for the receive function
-udp:settimeout(2) -- Timeout in seconds
-
-local current_master_drone_id = nil
+local receive_port = FOLLOWER_DRONE_PORT -- Replace with the port for receiving data on this drone
 
 while true do
-    -- Receive the message
-    local data, msg_or_ip, port_or_nil = udp:receivefrom()
+    -- Receive location data
+    local data, _, _ = receive_udp_message(receive_port)
 
     if data then
-        -- Check for the new master drone keyword
-        if data:find("NEW_MASTER") then
-            -- Extract the new master drone ID
-            local new_master_id = data:match("NEW_MASTER,(%d+)")
+        local lat, lon, alt = string.match(data, "([^,]+),([^,]+),([^,]+)")
+        lat = tonumber(lat)
+        lon = tonumber(lon)
+        alt = tonumber(alt)
 
-            if new_master_id then
-                new_master_id = tonumber(new_master_id) -- Convert to number for comparison
+        if lat and lon and alt then
+            print("Received location data: Latitude: " .. lat .. ", Longitude: " .. lon .. ", Altitude: " .. alt)
 
-                if current_master_drone_id ~= new_master_id then
-                    current_master_drone_id = new_master_id
-                    print("!!! Master drone now: Drone " .. new_master_id)
-                end
-            end
-        elseif data:find("MAV") then
-            -- Extract MAC address, drone ID, latitude, longitude, and altitude
-            local mac_address, drone_id, latitude, longitude, altitude = data:match("MAV,(%w+:%w+:%w+:%w+:%w+:%w+),(%d+),(%-?%d+%.?%d*),(%-?%d+%.?%d*),(%-?%d+%.?%d*)")
-            
-            -- Process the received data
-            if drone_id and mac_address and latitude and longitude and altitude then
-                drone_id = tonumber(drone_id) -- Convert to number to compare properly with the current_master_drone_id
-                print("Data received from Drone ID: " .. drone_id)
-                print("MAC Address: " .. mac_address)
-                print("Latitude: " .. latitude)
-                print("Longitude: " .. longitude)
-                print("Altitude: " .. altitude)
-            else
-                print("Invalid MAVLink data format received.")
-            end
+            -- logic to process this data
+            -- For example, adjusting the drone's position to follow the leader
         else
-            print("Invalid data received.")
+            print("Invalid location data received.")
         end
     else
-        -- Print the error message if no data was received
-        print("No data received. Message or Error: " .. tostring(msg_or_ip))
+        print("No data received.")
     end
 
-    -- You can add a short delay to prevent the loop from running too fast, but it is optional
-    socket.sleep(0.1)
+    socket.sleep(1) -- Wait for 1 second
 end
