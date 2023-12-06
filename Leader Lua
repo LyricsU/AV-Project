@@ -13,7 +13,7 @@ local follower_drone_port = FOLLOWER_DRONE_PORT -- Replace with the port for rec
 
 -- Function to read location from AHRS
 function read_location()
-    local current_location = ahrs:get_location() -- Assuming ahrs object is available and configured
+    local current_location = ahrs:get_location() 
 
     if current_location then
         local latitude = current_location:lat() * 1e-7
