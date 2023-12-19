@@ -28,7 +28,7 @@ while True:
         yaw = data_dict['yaw']
 
         # TODO: Add logic to act on received altitude and yaw
-        # This part will depend on what you want the follower drone to do with the received data
+        # This part will depend on what I want the follower drone to do with the received data
 
         # For example, print the values
         print(f"Recieved Altitude: {altitude}, Yaw: {yaw}")
