@@ -1,3 +1,4 @@
+#Code is working (communicating between the 2 rpis & sending yaw and altitude) as of 22:57 19/12/23
 import socket
 import json
 import time
