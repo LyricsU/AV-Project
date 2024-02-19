@@ -1,39 +1,36 @@
-#Code is working (communicating between the 2 rpis & sending yaw and altitude) as of 22:57 19/12/23
+#Code is working (communicating between the 2 rpis & sending yaw and altitude) as of 15:00 19/02/24
 import socket
 import json
 import time
+import uuid
 
-# Setup UDP socket for receiving data
-local_ip = '0.0.0.0'  # Listen on all available IPs
-local_port = 14551    # The port should match the port used by the leader drone to send data
+def get_mac_address():
+    mac_num = hex(uuid.getnode()).replace('0x', '').upper()
+    mac = ':'.join(mac_num[i:i+2] for i in range(0, 11, 2))
+    return mac
+
+my_mac_address = get_mac_address()
+
+local_ip = '0.0.0.0'
+local_port = 14551
 sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
 sock.bind((local_ip, local_port))
 
-print("follower script starting waiting for data from leader...") 
+print("Follower script starting, waiting for commands...")
 
 while True:
     try:
-        # Receive data from leader
-        data, addr = sock.recvfrom(1024)  # buffer size is 1024 bytes
-        print(f"recieved data:{data.decode()}")
-
-        # Decode the received data
+        data, addr = sock.recvfrom(1024)
         decoded_data = data.decode()
-        print(f"Received data: {decoded_data}")
+        command = json.loads(decoded_data)
 
-        # Convert the data from JSON format
-        data_dict = json.loads(decoded_data)
-
-        # Extract altitude and yaw
-        altitude = data_dict['altitude']
-        yaw = data_dict['yaw']
-
-        # TODO: Add logic to act on received altitude and yaw
-        # This part will depend on what I want the follower drone to do with the received data
-
-        # For example, print the values
-        print(f"Recieved Altitude: {altitude}, Yaw: {yaw}")
-        
+        if command.get('mac_address') == my_mac_address:
+            position_command = command['position']
+            print(f"Received position command: {position_command}")
+            # Here, implement logic to adjust position based on the command
+            # This part depends on your drone's control API
+        else:
+            print("Command not intended for this drone.")
     except json.JSONDecodeError:
         print("Error decoding JSON data")
     except Exception as e:
