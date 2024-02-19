@@ -1,46 +1,49 @@
-#Code is working (communicating between the 2 rpis & sending yaw and altitude) as of 22:57 19/12/23
-# Leader Drone Script
-from pymavlink import mavutil
+#Code is working (communicating between the 2 rpis & sending yaw and altitude) as of 15:02 19/02/24
 import socket
 import json
 import time
 import math
-print("Connecting to MAVLInk via TCP...")
+from pymavlink import mavutil
+
+print("Connecting to MAVLink via TCP...")
 
 # Connect to the Pixhawk
 master = mavutil.mavlink_connection('tcp:localhost:14551')
 
-print("MAVLink connection estalished")
+print("MAVLink connection established")
+
 # Setup UDP socket for sending data
-follower_ip = '192.168.2.109'  # Replace with the IP of the follower drone
+broadcast_ip = '192.168.2.255'  # Assuming broadcast; replace as needed
 follower_port = 14551
 sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+sock.setsockopt(socket.SOL_SOCKET, socket.SO_BROADCAST, 1)
 
+# List of follower drones, identified by some unique attribute (e.g., MAC address)
+followers = ["drone2_mac_address", "drone3_mac_address"]
 
 while True:
     print("Waiting for heartbeat")
-    # Wait for a heartbeat message to confirm connection
     master.wait_heartbeat()
-    print("Heartbeat Recived.")
+    print("Heartbeat Received.")
 
-    # Request data streams
     master.mav.request_data_stream_send(master.target_system, master.target_component, mavutil.mavlink.MAV_DATA_STREAM_ALL, 1, 1)
-
-    # Fetch attitude and GPS data
     attitude = master.recv_match(type='ATTITUDE', blocking=True)
     hud_data = master.recv_match(type='VFR_HUD', blocking=True)
 
     if attitude and hud_data:
-        yaw_radians = attitude.yaw
-        yaw_degrees = math.degrees(yaw_radians) #converting from rads to deg
-        altitude = hud_data.alt   # Convert from mm to meters
+        # Generate and send instructions for each follower
+        for index, follower_mac in enumerate(followers):
+            # Example command structure: stay 5 meters behind the leader, with additional lateral offset for drone 3
+            command = {
+                'mac_address': follower_mac,
+                'position': {
+                    'behind': 5,
+                    'right': 1 if index == 1 else 0,  # Adding a lateral offset for the second follower
+                }
+            }
 
-        # Prepare data to send
-        data = json.dumps({'altitude': altitude, 'yaw': yaw_degrees})
-
-        # Send data to follower
-        sock.sendto(data.encode(), (follower_ip, follower_port))
-        #conf. data was sent
-        print(f"Sent data to follower: {data}")
+            data = json.dumps(command)
+            sock.sendto(data.encode(), (broadcast_ip, follower_port))
+            print(f"Sent command to {follower_mac}: {data}")
 
     time.sleep(1)
